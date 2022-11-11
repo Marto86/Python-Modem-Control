@@ -1,16 +1,21 @@
-import sys
-from rtlsdr import *
-
 from pylab import *
+from rtlsdr import *
+import time
 
-sdr = RtlSdr()
+while 1:
 
-sdr.sample_rate = 3.2e6
+ sdr = RtlSdr()
 
-sdr.center_freq = 900e6
+ sdr.sample_rate = 3.2e6
 
-sdr.gain = 5
+ sdr.center_freq = 980e6
 
-samples = sdr.read_samples(500e3)
+ sdr.gain = 5
 
-print (samples)
+ samples = sdr.read_samples(128*1024)
+
+ print ('relative power: %0.1f dB' % (10*log10(var(samples))))
+
+ sdr.close()
+
+ time.sleep(0.5)
