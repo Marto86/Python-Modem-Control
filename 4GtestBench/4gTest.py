@@ -1,6 +1,8 @@
 import serial
 import io
 import time
+from pylab import *
+from rtlsdr import *
 import os
 from serial import Serial
 import serial.tools.list_ports
@@ -17,6 +19,14 @@ quectel_available = False
 com_port = '/dev/ttyUSB1'
 at_port = 'Android - Mobile AT Interface'
 
+qrf_band = 'GSM900'
+qrf_test_mode_on = 'on'
+qrf_test_mode_off = 'off'
+qrf_chanell = 62
+qrf_power = 200
+
+qrf_test_on_command = 'AT+QRFTEST="{}",{},"{}",{}\r\n'.format(qrf_band,qrf_chanell,qrf_test_mode_on,qrf_power)
+qrf_test_off_command = 'AT+QRFTEST="{}",{},"{}",{}'.format(qrf_band,qrf_chanell,qrf_test_mode_off,qrf_power)
 
 def device_test():
     
@@ -30,18 +40,18 @@ def device_test():
     rtscts=False,
     dsrdtr=False
 )
-    signal_text = io.TextIOWrapper(signal, newline='\r\n')
-    signal.write("AT+CPIN?\r\n".encode())
-    time.sleep(1)
-    sim_result = signal.read(signal.inWaiting()).decode()
-    
-    if sim_error in sim_result:
-          print("SIM CARD FAIL !!!! \nCheck SIM card please !")
-    if sim_mounted in sim_result:            
-         print("SIM CARD PASS !!!!!!")
+    # signal_text = io.TextIOWrapper(signal, newline='\r\n')
+    sdr = RtlSdr()
+    sdr.sample_rate = 3.2e6
+    sdr.center_freq = 902e6
+    sdr.gain = 'auto'
+
+    signal.write("AT+GSN\r\n".encode())
+    time.sleep(1.5)
+    imei_result = signal.read(signal.inWaiting()).decode()
     
     signal.write("AT+CSQ\r\n".encode())#+CSQ: 10,99
-    time.sleep(1)
+    time.sleep(1.5)
     csq_result = signal.read(signal.inWaiting()).decode()
     if response_rssi in csq_result:
      res = csq_result.split(" ")
@@ -49,31 +59,60 @@ def device_test():
      rssi_signal = int(value[0])
      if rssi_signal > 10:
        print("Rssi signal PASS ",rssi_signal)
+
+    signal.write("AT+CPIN?\r\n".encode())
+    time.sleep(1)
+    sim_result = signal.read(signal.inWaiting()).decode()
     
-      # signal.write("AT+CPIN\r\n".encode()) #+QSIMSTAT: 1,1 // at+cpin?
-    
-      # if result == '+CPIN: READY':
-      #   print("SIM CARD IS SUCCESSFULLY INSERTED")
+    if sim_error in sim_result:
+          print("SIM CARD FAIL !!!! \nCheck SIM card please !")
+          signal.close()
+    if sim_mounted in sim_result:
+         print("SIM CARD PASS !!!!!!")
+    # signal.write("AT+RESET\r\n".encode())     
+    # signal.close()    
+    # # configure device
+        
+         signal.write("AT+QRFTESTMODE=0\r\n".encode())
+         time.sleep(0.5)
+         signal.write("AT+QRFTESTMODE=1\r\n".encode())
+         time.sleep(1)
+         signal.write(qrf_test_on_command.encode())
+         time.sleep(3)
+         samples = sdr.read_samples(128*1024)
+         signal_value = (10*log10(var(samples)))
+         if signal_value > -26.00 and signal_value < -13.00:
+           print('Atena Signal PASSS with %0.2f dB !!!!!!!!' % signal_value)
+           time.sleep(1)
+           signal.write(qrf_test_off_command.encode())
+           time.sleep(0.5)
+           signal.write("AT+QRFTESTMODE=0\r\n".encode())
+           sdr.close()
+           time.sleep(1)            
+         
+    signal.write("AT+RESET\r\n".encode()) 
     time.sleep(0.5)
-    signal.close() 
+    signal.close()
+
+   
 
 while 1:
   myports = [tuple(p) for p in list(serial.tools.list_ports.comports())]
-  time.sleep(5)
+  time.sleep(3)
   for port in myports:
-   print(port)
+  #  print(port)
    if at_port in port[1] and com_port in port[0]:
      quectel_available = True 
      curr_at_port = port[0]
      while quectel_available:
        print("4G Device detected at port",curr_at_port)
-       time.sleep(4)
        device_test()
-       time.sleep(15)
+       time.sleep(5)
+       quectel_available = False 
        break 
    if at_port not in port[1]:
-       print("Device Search........ \nPlease Connect 4G USB \n")
-
+       print("Please Connect 4G USB \n")
+   
    
   
 
