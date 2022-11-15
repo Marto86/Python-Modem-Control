@@ -6,11 +6,11 @@ while 1:
 
  sdr = RtlSdr()
 
- sdr.sample_rate = 3.2e6
+ sdr.sample_rate = 240000
 
- sdr.center_freq = 980e6
+ sdr.center_freq = 900e6
 
- sdr.gain = 5
+ sdr.gain = 'auto'
 
  samples = sdr.read_samples(128*1024)
 

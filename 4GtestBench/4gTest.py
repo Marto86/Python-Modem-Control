@@ -16,7 +16,7 @@ sim_mounted = '+CPIN: READY'
 at_enable_sim_status = 'AT+QSIMSTAT=1'
 at_request_sim_status = 'AT+QSIMSTAT?'
 quectel_available = False
-com_port = '/dev/ttyUSB1'
+com_port = '/dev/ttyUSB2'
 at_port = 'Android - Mobile AT Interface'
 
 qrf_band = 'GSM900'
@@ -24,6 +24,8 @@ qrf_test_mode_on = 'on'
 qrf_test_mode_off = 'off'
 qrf_chanell = 62
 qrf_power = 200
+
+
 
 qrf_test_on_command = 'AT+QRFTEST="{}",{},"{}",{}\r\n'.format(qrf_band,qrf_chanell,qrf_test_mode_on,qrf_power)
 qrf_test_off_command = 'AT+QRFTEST="{}",{},"{}",{}'.format(qrf_band,qrf_chanell,qrf_test_mode_off,qrf_power)
@@ -39,7 +41,8 @@ def device_test():
     stopbits=1,
     rtscts=False,
     dsrdtr=False
-)
+)    
+    
     # signal_text = io.TextIOWrapper(signal, newline='\r\n')
     sdr = RtlSdr()
     sdr.sample_rate = 3.2e6
@@ -47,9 +50,10 @@ def device_test():
     sdr.gain = 'auto'
 
     signal.write("AT+GSN\r\n".encode())
-    time.sleep(1.5)
+    time.sleep(3)
     imei_result = signal.read(signal.inWaiting()).decode()
-    
+    # if imei_result.isdigit():
+    print(imei_result)
     signal.write("AT+CSQ\r\n".encode())#+CSQ: 10,99
     time.sleep(1.5)
     csq_result = signal.read(signal.inWaiting()).decode()
@@ -57,8 +61,8 @@ def device_test():
      res = csq_result.split(" ")
      value = res[1].split(",")
      rssi_signal = int(value[0])
-     if rssi_signal > 10:
-       print("Rssi signal PASS ",rssi_signal)
+     if rssi_signal > 10 and rssi_signal < 35 :
+       print("Rssi signal:",rssi_signal)
 
     signal.write("AT+CPIN?\r\n".encode())
     time.sleep(1)
@@ -69,8 +73,6 @@ def device_test():
           signal.close()
     if sim_mounted in sim_result:
          print("SIM CARD PASS !!!!!!")
-    # signal.write("AT+RESET\r\n".encode())     
-    # signal.close()    
     # # configure device
         
          signal.write("AT+QRFTESTMODE=0\r\n".encode())
@@ -82,7 +84,7 @@ def device_test():
          samples = sdr.read_samples(128*1024)
          signal_value = (10*log10(var(samples)))
          if signal_value > -26.00 and signal_value < -13.00:
-           print('Atena Signal PASSS with %0.2f dB !!!!!!!!' % signal_value)
+           print('Atena Signal: %0.2f dB !!!!!!!!' % signal_value)
            time.sleep(1)
            signal.write(qrf_test_off_command.encode())
            time.sleep(0.5)
@@ -91,16 +93,14 @@ def device_test():
            time.sleep(1)            
          
     signal.write("AT+RESET\r\n".encode()) 
-    time.sleep(0.5)
     signal.close()
 
-   
+   #866760050122763
 
 while 1:
   myports = [tuple(p) for p in list(serial.tools.list_ports.comports())]
-  time.sleep(3)
+  time.sleep(2)
   for port in myports:
-  #  print(port)
    if at_port in port[1] and com_port in port[0]:
      quectel_available = True 
      curr_at_port = port[0]
